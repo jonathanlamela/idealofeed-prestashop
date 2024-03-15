@@ -96,8 +96,8 @@ truncate(round((`p`.`price`)* 1.22,2),2) AS `price`,
 `pl`.`delivery_in_stock` AS `delivery_days`,
 `rc`.`ramo` AS `category`,
 ifnull(`pl`.`description`,`pl`.`description_short`) AS `description`,
-concat('https://www.ldc.it/',`p`.`id_product`,'-',`pl`.`link_rewrite`,'.html?utm_source=idealo') AS `product_url`,
-concat('https://www.ldc.it/',`pi`.`id_image`,'-large_default/',`pl`.`link_rewrite`,'.jpg') AS `image_url`
+concat('" . Tools::getHttpHost(true) . __PS_BASE_URI__  . "',`p`.`id_product`,'-',`pl`.`link_rewrite`,'.html?utm_source=idealo') AS `product_url`,
+concat('" . Tools::getHttpHost(true) . __PS_BASE_URI__  . "',`pi`.`id_image`,'-large_default/',`pl`.`link_rewrite`,'.jpg') AS `image_url`
 from `" . _DB_PREFIX_ . "product` `p`
 left join `" . _DB_PREFIX_ . "product_lang` `pl` on `p`.`id_product` = `pl`.`id_product`
 left join `" . _DB_PREFIX_ . "webfeed_ramo_categoria` `rc` on `p`.`id_category_default` = `rc`.`id_ramo_categoria`
@@ -107,6 +107,7 @@ left join `" . _DB_PREFIX_ . "stock_available` `st` on `st`.`id_product` = `p`.`
 left join `" . _DB_PREFIX_ . "webfeed_product` `wp` on `wp`.`prestashop_id`=`p`.`id_product`
 where `rc`.`ramo` is not null
 and `p`.`id_category_default` >= 2
+and `pi`.`id_image` is not null
 and `pl`.`id_lang` = 1
 and `st`.`quantity` > 0
         ";
