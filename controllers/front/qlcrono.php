@@ -1,19 +1,5 @@
 <?php
 
-/**
- * 2014-2016 MyQuickList
- *
- * NOTICE OF LICENSE
- *
- * E' vietata la riproduzione parziale e non del modulo ,
- * la vendita e la distribuzione non autorizzata dalla MyQuickList.
- *
- *  @author    Jonathan La Mela <jonathan.la.mela@gmail.com>
- *  @copyright 2007-2016 MyQuickList
- *  @license   http://www.creativecommons.it/ Creative Commons
- */
-
-
 class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
 {
 
