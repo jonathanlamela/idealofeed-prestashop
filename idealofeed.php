@@ -73,6 +73,8 @@ class IdealoFeed extends Module
                     "IDEALO_FEED_CATEGORIES",
                     implode(",", Tools::getValue("IDEALO_FEED_CATEGORIES"))
                 );
+            } else {
+                Configuration::updateValue("IDEALO_FEED_CATEGORIES", "");
             }
 
 

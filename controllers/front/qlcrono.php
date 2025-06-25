@@ -100,7 +100,7 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
 
                 if (!empty($suppliers) && !in_array($p["id_supplier"], $suppliers)) {
                     $skipped_by_supplier++;
-                    continue; // Skip products from excluded suppliers
+                    continue; // Skip products not in suppliers
                 }
 
                 if (!empty($categories) && in_array($p["id_category_default"], $categories)) {
