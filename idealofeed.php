@@ -119,7 +119,7 @@ class IdealoFeed extends Module
             'input' => array(
                 array(
                     'type' => 'select',
-                    'label' => $this->l('Exclude suppliers'),
+                    'label' => $this->l('INCLUDE suppliers'),
                     'name' => 'IDEALO_FEED_SUPPLIERS[]',
                     'multiple' => true,
                     "options" => array(
@@ -130,7 +130,7 @@ class IdealoFeed extends Module
                 ),
                 array(
                     'type' => 'categories',
-                    'label' => $this->l('Exclude categories'),
+                    'label' => $this->l('EXCLUDE categories'),
                     'name' => 'IDEALO_FEED_CATEGORIES',
                     'tree' => [
                         'selected_categories' => explode(
