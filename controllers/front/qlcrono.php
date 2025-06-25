@@ -23,9 +23,11 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
         $str_query = "
         SELECT
             pl.link_rewrite,
+            ps.id_supplier,
             p.id_product,
             p.ean13,
             p.reference,
+            p.id_category_default,
             pm.name AS brand,
             pl.name AS name,
             ROUND(p.price * 1.22, 2) AS price,
@@ -34,22 +36,26 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
             pl.description_short AS description,
             wi.image_url AS image_url,
             CONCAT('https://', '" . Tools::getShopDomain() . "', '" . __PS_BASE_URI__ . "', p.id_product, '-', pl.link_rewrite, '.html?utm_source=idealo') AS product_url
-        FROM ps_product p
-        INNER JOIN ps_product_lang pl
+        FROM " . _DB_PREFIX_ . "product p
+        INNER JOIN " . _DB_PREFIX_ . "product_lang pl
             ON p.id_product = pl.id_product AND pl.id_lang = 1
-        INNER JOIN ps_webfeed_product wp
+        INNER JOIN " . _DB_PREFIX_ . "webfeed_product wp
             ON wp.id_product = p.id_product
-        INNER JOIN ps_webfeed_images wi
+        INNER JOIN " . _DB_PREFIX_ . "webfeed_images wi
             ON wp.internal_code = wi.internal_code AND wi.image_url IS NOT NULL
-        INNER JOIN ps_webfeed_ramo_categoria rc
+        INNER JOIN " . _DB_PREFIX_ . "webfeed_ramo_categoria rc
             ON p.id_category_default = rc.id_ramo_categoria
-        INNER JOIN ps_stock_available st
+        INNER JOIN " . _DB_PREFIX_ . "stock_available st
             ON st.id_product = p.id_product AND st.quantity > 0
-        LEFT JOIN ps_manufacturer pm
+        LEFT JOIN " . _DB_PREFIX_ . "manufacturer pm
             ON pm.id_manufacturer = p.id_manufacturer
+        LEFT JOIN " . _DB_PREFIX_ . "product_supplier ps
+            ON ps.id_product = p.id_product
         WHERE rc.ramo IS NOT NULL
         AND p.id_category_default >= 2;
         ";
+
+
 
         $filePath = _PS_ROOT_DIR_ . "/datafeed/idealo.csv";
         $file = fopen($filePath, "w");
@@ -72,8 +78,36 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
 
         $results = $db->executeS($str_query);
 
+        $skipped_by_supplier = 0;
+        $skipped_by_category = 0;
+
+        $suppliers_config = Configuration::get('IDEALO_FEED_SUPPLIERS');
+        $suppliers = [];
+
+        if ($suppliers_config) {
+            $suppliers = explode(",", $suppliers_config);
+        }
+
+        $categories_config = Configuration::get('IDEALO_FEED_CATEGORIES');
+        $categories = [];
+
+        if ($categories_config) {
+            $categories = explode(",", $categories_config);
+        }
+
         if ($results) {
             foreach ($results as $p) {
+
+                if (!empty($suppliers) && in_array($p["id_supplier"], $suppliers)) {
+                    $skipped_by_supplier++;
+                    continue; // Skip products from excluded suppliers
+                }
+
+                if (!empty($categories) && in_array($p["id_category_default"], $categories)) {
+                    $skipped_by_category++;
+                    continue; // Skip products from excluded suppliers
+                }
+
                 $row = [
                     $p["id_product"],
                     $p["ean13"],
@@ -108,7 +142,9 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
 
         $this->ajaxRender(json_encode([
             "url" => Tools::getHttpHost(true) . __PS_BASE_URI__ . "/datafeed/idealo.csv?v=" . time(),
-            "filesize" => filesize($filePath)
+            "filesize" => filesize($filePath),
+            "skipped_by_supplier" => $skipped_by_supplier,
+            "skipped_by_category" => $skipped_by_category,
         ]));
     }
 
