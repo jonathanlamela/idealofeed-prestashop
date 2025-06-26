@@ -29,13 +29,11 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
             p.reference,
             p.id_category_default,
             pm.name AS brand,
-            pl.name AS name,
-            ROUND(p.price * 1.22, 2) AS price,
-            pl.delivery_in_stock AS delivery_time,
-            rc.ramo AS category,
-            pl.description_short AS description,
-            wi.image_url AS image_url,
-            CONCAT('https://', '" . Tools::getShopDomain() . "', '" . __PS_BASE_URI__ . "', p.id_product, '-', pl.link_rewrite, '.html?utm_source=idealo') AS product_url
+            pl.name,
+            p.price,
+            pl.delivery_in_stock,
+            pl.description_short,
+            wi.image_url AS image_url
         FROM " . _DB_PREFIX_ . "product p
         INNER JOIN " . _DB_PREFIX_ . "product_lang pl
             ON p.id_product = pl.id_product AND pl.id_lang = 1
@@ -43,16 +41,13 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
             ON wp.id_product = p.id_product
         INNER JOIN " . _DB_PREFIX_ . "webfeed_images wi
             ON wp.internal_code = wi.internal_code AND wi.image_url IS NOT NULL
-        INNER JOIN " . _DB_PREFIX_ . "webfeed_ramo_categoria rc
-            ON p.id_category_default = rc.id_ramo_categoria
         INNER JOIN " . _DB_PREFIX_ . "stock_available st
             ON st.id_product = p.id_product AND st.quantity > 0
         LEFT JOIN " . _DB_PREFIX_ . "manufacturer pm
             ON pm.id_manufacturer = p.id_manufacturer
         LEFT JOIN " . _DB_PREFIX_ . "product_supplier ps
             ON ps.id_product = p.id_product
-        WHERE rc.ramo IS NOT NULL
-        AND p.id_category_default >= 2;
+        WHERE p.id_category_default >= 2;
         ";
 
 
@@ -95,34 +90,67 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
             $categories = explode(",", $categories_config);
         }
 
-        if ($results) {
-            foreach ($results as $p) {
+        $rami_query = $db->executeS("SELECT id_ramo_categoria, ramo FROM " . _DB_PREFIX_ . "webfeed_ramo_categoria");
+        $rami = [];
 
-                if (!empty($suppliers) && !in_array($p["id_supplier"], $suppliers)) {
+        foreach ($rami_query as $ramo) {
+            $rami[$ramo["id_ramo_categoria"]] = $ramo["ramo"];
+        }
+
+        //Ottieni i prezzi specifici attivi
+        $specific_prices_query = $db->executeS("SELECT * FROM " . _DB_PREFIX_ . "specific_price WHERE `to` > NOW()");
+        $specific_prices = [];
+
+        foreach ($specific_prices_query as $specific_price) {
+            $specific_prices[$specific_price["id_product"]] = [
+                "reduction" => $specific_price["reduction"],
+                "reduction_type" => $specific_price["reduction_type"],
+                "price" => $specific_price["price"],
+            ];
+        }
+
+        if ($results) {
+            foreach ($results as $row) {
+
+                if (!empty($suppliers) && !in_array($row["id_supplier"], $suppliers)) {
                     $skipped_by_supplier++;
                     continue; // Skip products not in suppliers
                 }
 
-                if (!empty($categories) && in_array($p["id_category_default"], $categories)) {
+                if (!empty($categories) && in_array($row["id_category_default"], $categories)) {
                     $skipped_by_category++;
                     continue; // Skip products from excluded suppliers
                 }
 
-                $row = [
-                    $p["id_product"],
-                    $p["ean13"],
-                    $p["reference"],
-                    $p["brand"],
-                    $p["name"],
-                    $p["price"],
-                    $p["delivery_time"],
-                    $p["category"],
-                    $p["description"],
-                    $p["product_url"],
-                    $p["image_url"],
+                if (isset($rami[$row["id_category_default"]])) {
+                    $row["category_tree"] = $rami[$row["id_category_default"]];
+                } else {
+                    continue; // Skip products with no category
+                }
+
+                if (isset($specific_prices[$row["id_product"]])) {
+                    $specific_price = $specific_prices[$row["id_product"]];
+                    if ($specific_price["reduction_type"] == "amount") {
+                        $row["price"] = $specific_price["price"];
+                    }
+                }
+
+                $link = "https://" . Tools::getShopDomain() . "/" . $row["id_product"] . "-" . $row["link_rewrite"] . ".html?utm_source=idealo";
+
+                fputcsv($file, [
+                    $row["id_product"],
+                    $row["ean13"],
+                    $row["reference"],
+                    $row["brand"],
+                    $row["name"],
+                    round($row["price"] * 1.22, 2),
+                    $row["delivery_in_stock"],
+                    $row["category_tree"],
+                    $row["description_short"],
+                    $link,
+                    $row["image_url"],
                     0
-                ];
-                fputcsv($file, $row, "|");
+                ], "|");
             }
         }
 
@@ -137,6 +165,8 @@ class IdealoFeedQlcronoModuleFrontController extends ModuleFrontController
             ]));
             return;
         }
+
+        unset($results);
 
         ini_set('memory_limit', '256M');
 
